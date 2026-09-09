@@ -1,0 +1,9 @@
+venv/
+.env
+__pycache__/
+*.db
+.nicegui
+.pytest_cache/
+*.egg-info
+#VSCODE SETTINGS
+.vscode/
