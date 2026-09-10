@@ -5,6 +5,8 @@ import os
 import models
 init_db()
 
+from views.pages import login
+
 @ui.page('/')
 def index() -> None:
     if not app.storage.user.get('user_id'):
