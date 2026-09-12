@@ -11,6 +11,9 @@ def authenticate_user(club_id: int, name: str, password: str) -> User | None:
         if not user:
             raise ValueError("error_user_does_not_exist")
 
+        if not user.is_active or not user.password_hash:
+            raise ValueError("error_account_not_activated")
+
         if not user.check_password(password=password):
             raise ValueError("error_invalid_password")
 
@@ -24,7 +27,7 @@ def update_password(user_id: int, new_password: str) -> None:
         if not user:
             raise ValueError("error_user_does_not_exist")
         
-        if user.check_password(password=new_password):
+        if user.password_hash and user.check_password(password=new_password):
             raise ValueError("error_password_already_used")
 
         user.password = new_password

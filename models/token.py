@@ -22,4 +22,5 @@ class Token(Base):
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user.id"), default=None)
     event_id: Mapped[Optional[int]] = mapped_column(ForeignKey("event.id"), default=None)
 
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)

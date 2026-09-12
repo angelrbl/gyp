@@ -16,4 +16,4 @@ class Club(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True)
 
     squad: Mapped[list["User"]] = relationship(back_populates="club", cascade="all, delete-orphan")
-    events: Mapped[list["Event"]] = relationship(back_populates="club", cascade="all, delete-orphan")
+    events: Mapped[list["Event"]] = relationship(back_populates="club", foreign_keys="[Event.club_id]", cascade="all, delete-orphan")

@@ -1,8 +1,8 @@
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import Optional
 from enum import Enum
 
-from sqlalchemy import String, ForeignKey, Date, Time
+from sqlalchemy import String, ForeignKey, Date, Time, DateTime
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from core import Base
@@ -33,9 +33,10 @@ class Event(Base):
 
     event_type: Mapped["EventType"] = mapped_column()
     status: Mapped["EventStatus"] = mapped_column(default=EventStatus.OPEN)
+    response_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)
 
     opponent_name: Mapped[Optional[str]] = mapped_column(String(100))
-    opponent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("club.id"))
+    opponent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("opponent.id"))
 
     slots: Mapped[list["Slot"]] = relationship(
         "Slot",

@@ -31,7 +31,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     email: Mapped[Optional[str]] = mapped_column(String(150), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column()
+    password_hash: Mapped[Optional[str]] = mapped_column()
 
     club_id: Mapped[int] = mapped_column(ForeignKey("club.id"))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
