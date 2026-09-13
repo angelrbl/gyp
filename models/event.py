@@ -36,7 +36,7 @@ class Event(Base):
     response_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)
 
     opponent_name: Mapped[Optional[str]] = mapped_column(String(100))
-    opponent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("opponent.id"))
+    opponent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("club.id"))
 
     slots: Mapped[list["Slot"]] = relationship(
         "Slot",

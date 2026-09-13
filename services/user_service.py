@@ -17,7 +17,7 @@ def create_user(
         if user:
             raise ValueError("error_user_already_exists")
 
-        user = User(name=name, email=email, club_id=club_id)
+        user = User(name=name, email=email, club_id=club_id, is_admin=is_admin)
 
         if password:
             user.password = password

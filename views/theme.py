@@ -12,11 +12,4 @@ COLORS = {
 def apply_theme():
     app.add_static_files('/static', '././static')
 
-    ui.colors(
-        primary=COLORS['primary'],
-        secondary=COLORS['secondary'],
-        accent=COLORS['accent'],
-        negative=COLORS['negative'],
-        positive=COLORS['positive'],
-        dark=COLORS['dark'],
-    )
+    app.colors(**COLORS)

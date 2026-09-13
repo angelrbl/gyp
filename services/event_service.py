@@ -7,7 +7,7 @@ from models import Event, EventStatus, EventType, Slot
 
 from services.club_service import get_club_by_name
 
-def create_service(
+def create_event(
     club_id: int,
     title: str,
     event_type: EventType,
