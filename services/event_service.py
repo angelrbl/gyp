@@ -1,4 +1,4 @@
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -6,6 +6,37 @@ from core import get_session
 from models import Event, EventStatus, EventType, Slot
 
 from services.club_service import get_club_by_name
+
+def generate_slots(
+    date_from: date,
+    date_to: date,
+    weekdays: set[int],
+    daily_start: time,
+    daily_end: time,
+    duration_minutes: int
+) -> list[tuple[date, time, time]]:
+    if date_from > date_to:
+        raise ValueError("error_date_range_invalid")
+    if daily_start >= daily_end:
+        raise ValueError("error_daily_window_invalid")
+    if duration_minutes <= 0:
+        raise ValueError("error_duration_invalid")
+
+    slots = []
+    current_date = date_from
+    step = timedelta(minutes=duration_minutes)
+
+    while current_date <= date_to:
+        if current_date.weekday() in weekdays:
+            current_datetime = datetime.combine(current_date, daily_start)
+            day_end = datetime.combine(current_date, daily_end)
+            while current_datetime + step <= day_end:
+                slot_end = current_datetime + step
+                slots.append((current_datetime, current_datetime.time(), slot_end.time()))
+                current_datetime = slot_end
+        current_date += timedelta(days=1)
+
+    return slots
 
 def create_event(
     club_id: int,
