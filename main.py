@@ -9,13 +9,13 @@ apply_theme()
 
 @ui.page('/')
 def index() -> None:
-    if not app.storage.user.get('user_id'):
-        ui.navigate.to('/login')
+    if not app.storage.user.get('club_id'):
+        ui.navigate.to('/create_club')
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
             storage_secret=STORAGE_SECRET,
-            title="GYP",
+            title="La Pizarra Peluda",
             favicon='static/favicon.svg',
             port=8080
     )

@@ -1,3 +1,3 @@
 from views.pages import (
-    login
+    create_club
 )

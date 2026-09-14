@@ -66,6 +66,16 @@ def get_event_token(event_id: int) -> Token | None:
             session.expunge(token)
         return token
 
+def has_pending_activation_token(user_id: int) -> bool:
+    with get_session() as session:
+        stmt = select(Token).where(Token.user_id == user_id, Token.type == TokenType.ACTIVATION)
+        token = session.scalars(stmt).first()
+        if not token:
+            return False
+        if token.expires_at and token.expires_at < datetime.utcnow():
+            return False
+        return True
+
 def activate_account(token_value: str, new_password: str) -> User:
     with get_session() as session:
         stmt = select(Token).where(Token.value == token_value, Token.type == TokenType.ACTIVATION)

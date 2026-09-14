@@ -1,15 +1,30 @@
 from nicegui import ui, app
 
 COLORS = {
-    'primary': "#e4002b",
-    'secondary': '#c8102e',
-    'accent': '#a6192e',
-    'negative': '#E63946',
-    'positive': '#38A169',
-    'dark': '#051c2c',
+    'primary': "#D6273E",
+    'secondary': '#8C1526',
+    'accent': "#8C1526",
+    'negative': "#A32D2D",
+    'positive': "#2F9E5B",
+    'dark': "#241417",
 }
 
-def apply_theme():
+def hide_scrollbar() -> None:
+    ui.add_head_html('''
+        <style>
+            ::-webkit-scrollbar {
+                display: none;
+            }
+            * {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        </style>
+    ''', shared=True)
+
+def apply_theme() -> None:
+    hide_scrollbar()
+
     app.add_static_files('/static', '././static')
 
     app.colors(**COLORS)
