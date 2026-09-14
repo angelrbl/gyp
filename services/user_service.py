@@ -4,11 +4,11 @@ from core import get_session
 from models import User, Club
 
 def create_user(
-        name: str,
-        club_id: int,
-        password: str | None = None,
-        email:str | None = None,
-        is_admin: bool = False
+    name: str,
+    club_id: int,
+    password: str | None = None,
+    email:str | None = None,
+    is_admin: bool = False
 ) -> User | None:
     with get_session() as session:
         stmt = select(User).where(User.name == name, User.club_id == club_id)

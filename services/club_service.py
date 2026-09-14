@@ -3,7 +3,7 @@ from sqlalchemy import select
 from core import get_session
 from models import Club
 
-def create_club(name: str) -> Club | None:
+def create_club(name: str) -> Club:
     with get_session() as session:
         stmt = select(Club).where(Club.name == name)
         club = session.scalars(stmt).first()

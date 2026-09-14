@@ -1,8 +1,11 @@
-from nicegui import ui
+from nicegui import ui, app
 
 from views.layout import frame
 
-def create_club(
+from services.club_service import create_club
+from services.user_service import create_user
+
+def handle_create_club(
     club_name: str,
     admin_name: str,
     admin_password: str,
@@ -13,11 +16,34 @@ def create_club(
         error_label.text = "Por favor, rellena todos los campos antes de crear el club."
         error_label.classes(remove='hidden')
         return
+
+    if admin_password != admin_password_repeat:
+        error_label.text = "Las contraseñas dadas no coinciden."
+        error_label.classes(remove='hidden')
+        return
+
+    try:
+        club = create_club(name=club_name)
+        app.storage.user['club_id'] = club.id
+
+        user = create_user(name=admin_name, club_id=club.id, password=admin_password, is_admin=True)
+        app.storage.user['user_id'] = user.id
+        app.storage.user['is_admin'] = True
+
+        ui.notify("¡El club se creó con éxito! Iniciando sesión en el dashboard de administrador.", type="positive")
+        ui.navigate.to('/login')
+    except ValueError as e:
+        error_label.text = "Este club ya existe, por favor, pruebe otro nombre."
+        error_label.classes(remove='hidden')
+        print(e)
+
     return
     
 
 @ui.page('/create_club')
 def create_club_page() -> None:
+    app.storage.user.clear()
+
     with frame(navigation_title="Crear club"):
         with ui.column().classes("items-center gap-10 sm:gap-15 w-full text-center sm:mt-10"):
             with ui.column().classes("items-center gap-3 w-full text-center"):
@@ -42,7 +68,7 @@ def create_club_page() -> None:
                 (
                     ui.button(
                         text="Crear club",
-                        on_click=lambda: create_club(
+                        on_click=lambda: handle_create_club(
                             club_name=club_name.value,
                             admin_name=admin_name.value,
                             admin_password=admin_password.value,
