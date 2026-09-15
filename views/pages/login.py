@@ -51,7 +51,6 @@ def login_page(club_name: str = "Grandiosa y Peluda") -> None:
     if app.storage.user.get("user_id", None):
         ui.navigate.to('/admin')
 
-    print(club_name)
     club = get_club_by_name(name=club_name)
 
     with frame(navigation_title="Iniciar Sesión"):
