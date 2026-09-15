@@ -24,7 +24,7 @@ def frame(navigation_title: str = "La Pizarra Peluda") -> None:
         'text-white p-4 shadow-lg shadow-black/5'
     ):
             ui.label(navigation_title).on('click', go_home).classes('text-lg font-bold tracking-wide hover:opacity-90')
-            ui.icon('img:/static/badge.svg', size='lg')
+            ui.icon('img:/static/badge_outline.svg', size='lg')
 
     with ui.element('main').classes('w-full max-w-lg mx-auto p-4 min-h-screen pb-20'):
         yield
