@@ -2,15 +2,59 @@ from nicegui import ui, app
 
 from views.layout import frame
 
-def handle_login():
-    ...
+from services.auth_service import authenticate_user
+from services.club_service import get_club_by_name
+
+def handle_login(
+    club_id: int,
+    name: str,
+    password: str,
+    password_repeat: str,
+    error_label: ui.label 
+) -> None:
+    if not (club_id and name and password and password_repeat):
+        error_label.text = "Por favor, rellena todos los campos antes de iniciar sesión."
+        error_label.classes(remove='hidden')
+        return
+
+    if password != password_repeat:
+        error_label.text = "Las contraseñas dadas no coinciden."
+        error_label.classes(remove='hidden')
+        return
+
+    try:
+        user = authenticate_user(name=name, club_id=club_id, password=password)
+        app.storage.user['user_id'] = user.id
+        app.storage.user['is_admin'] = user.is_admin
+        app.storage.user['club_id'] = club_id
+
+        ui.notify("¡Sesión iniciada con éxito! Redirigiéndole a staff...", type="positive")
+        ui.navigate.to('/admin')
+    except ValueError as e:
+        match str(e):
+            case "error_user_does_not_exist":
+                error_text = "El usuario no existe en este club, pruebe otro o pídale al administrador que lo cree."
+            case "error_account_not_activated":
+                error_text = "Este usuario no está activo, por favor, actívelo primero mediante el enlace de activación."
+            case "error_invalid_password":
+                error_text = "La contraseña es incorrecta, pruebe otra."
+
+        error_label.text = error_text
+        error_label.classes(remove='hidden')
+        print(e)
+
+    return
 
 @ui.page('/login')
-def login_page():
+@ui.page('{club_name}/login')
+def login_page(club_name: str = "Grandiosa y Peluda") -> None:
     if app.storage.user.get("user_id", None):
         ui.navigate.to('/admin')
 
-    with frame(navigation_title="Crear club"):
+    print(club_name)
+    club = get_club_by_name(name=club_name)
+
+    with frame(navigation_title="Iniciar Sesión"):
         with ui.column().classes("items-center gap-5 sm:gap-10 w-full text-center sm:mt-10"):
             ui.image('static/badge.png').classes('size-25')
 
@@ -32,6 +76,11 @@ def login_page():
                     ui.button(
                         text="Iniciar sesión",
                         on_click=lambda: handle_login(
+                            club_id=club.id,
+                            name=name.value,
+                            password=password.value,
+                            password_repeat=password_repeat.value,
+                            error_label=error_label
                         )
                     )
                     .classes('w-full pt-3 pb-3 rounded-md font-bold')
