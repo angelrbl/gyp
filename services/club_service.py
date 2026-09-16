@@ -1,5 +1,6 @@
 import re
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from core import get_session
 from models import Club
@@ -68,7 +69,7 @@ def get_club_by_id(club_id: int) -> Club | None:
         return None
 
     with get_session() as session:
-        club = session.get(Club, club_id)
+        club = session.get(Club, club_id, options=[selectinload(Club.squad)])
         if club:
             session.expunge(club)
         return club
@@ -76,7 +77,11 @@ def get_club_by_id(club_id: int) -> Club | None:
 def get_club_by_name(name: str) -> Club | None:
     with get_session() as session:
         target = _normalize_for_matching(name)
-        stmt = select(Club).where(_normalized_name_column() == target)
+        stmt = (
+            select(Club)
+            .options(selectinload(Club.squad))
+            .where(_normalized_name_column() == target)
+        )
         club = session.scalars(stmt).first()
         if club:
             session.expunge(club)
@@ -84,7 +89,8 @@ def get_club_by_name(name: str) -> Club | None:
 
 def get_only_club() -> Club | None:
     with get_session() as session:
-        club = session.scalars(select(Club)).first()
+        stmt = select(Club).options(selectinload(Club.squad))
+        club = session.scalars(stmt).first()
         if club:
             session.expunge(club)
         return club

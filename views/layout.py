@@ -13,7 +13,7 @@ def logout() -> None:
     ui.navigate.to("/login")
 
 @contextmanager
-def frame(navigation_title: str = "La Pizarra Peluda") -> None:
+def frame(navigation_title: str = "La Pizarra Peluda", pc_only: bool = False) -> None:
     def go_home():
         ui.navigate.to('/')
 

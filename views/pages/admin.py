@@ -1,13 +1,16 @@
 from nicegui import ui, app
 
 from views.layout import frame
+from views.components.admin_tabs import club_tab_page
 
 from services.club_service import get_club_by_id
+
 
 @ui.page('/admin')
 def admin_page() -> None:
     if not app.storage.user.get('user_id', None) or not app.storage.user.get('club_id', None):
         ui.navigate.to('/login')
+        return
 
     club_id = app.storage.user.get('club_id')
     club = get_club_by_id(club_id=club_id)
@@ -16,18 +19,19 @@ def admin_page() -> None:
         if not app.storage.user.get('is_admin', None):
             ui.label("¡Prohíbido el paso!").classes("text-3xl font-black text-negative")
             ui.label("Solo el administrador de tu club puede estar aquí.").classes('text-xl font-bold text-slate-700')
+            return
 
         with ui.tabs().classes('w-full text-primary') as tabs:
-            club = ui.tab('Club', icon='sports_soccer')
-            squad = ui.tab('Plantilla', icon='groups')
-            events = ui.tab('Eventos', icon='event')
+            club_tab = ui.tab('Club', icon='sports_soccer')
+            squad_tab = ui.tab('Plantilla', icon='groups')
+            events_tab = ui.tab('Eventos', icon='event')
 
-        with ui.tab_panels(tabs, value=events).classes('w-full'):
-            with ui.tab_panel(club):
-                ui.label('Club tab')
+        with ui.tab_panels(tabs, value=events_tab).classes('w-full'):
+            with ui.tab_panel(club_tab):
+                club_tab_page(club=club)
 
-            with ui.tab_panel(squad):
+            with ui.tab_panel(squad_tab):
                 ui.label('Squad tab')
 
-            with ui.tab_panel(events):
+            with ui.tab_panel(events_tab):
                 ui.label('Events tab')
