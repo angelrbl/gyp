@@ -2,7 +2,8 @@ from nicegui import app, ui
 
 from models import Club
 
-from services.club_service import update_club_name
+from services.club_service import update_club_name, delete_club
+from services.auth_service import authenticate_user
 
 
 def handle_update_club_name(club_id: int, new_name: str, error_label: ui.label) -> None:
@@ -13,6 +14,7 @@ def handle_update_club_name(club_id: int, new_name: str, error_label: ui.label) 
 
     try:
         update_club_name(club_id=club_id, new_name=new_name)
+        ui.notify("¡Nombre del club actualizado con éxito!", type="positive")
     except ValueError as e:
         match str(e):
             case "error_club_already_exists":
@@ -28,6 +30,50 @@ def handle_update_club_name(club_id: int, new_name: str, error_label: ui.label) 
 
     return
 
+def handle_delete_club(
+    club_id: int,
+    admin_name: str,
+    admin_password: str,
+    admin_password_repeat: str,
+    error_label: ui.label
+) -> None:
+    if not (club_id and admin_name and admin_password and admin_password_repeat):
+        error_label.text = "Por favor, rellena todos los campos antes de eliminar el club."
+        error_label.classes(remove='hidden')
+        return
+
+    if admin_password != admin_password_repeat:
+        error_label.text = "Las contraseñas dadas no coinciden."
+        error_label.classes(remove='hidden')
+        return
+
+    try:
+        admin = authenticate_user(club_id=club_id, name=admin_name, password=admin_password)
+        if admin and admin.is_admin:
+            if delete_club(club_id=club_id):
+                ui.notify("¡Club eliminado con éxito!")
+                app.storage.user.clear()
+                ui.navigate.to('/create_club')
+            else:
+                ui.notify("No se pudo borrar el club, por favor, inténtelo de nuevo.")
+    except ValueError as e:
+        match str(e):
+            case "error_user_does_not_exist":
+                error_text = "El usuario no existe en este club, pruebe otro."
+            case "error_account_not_activated":
+                error_text = "Este usuario no está activo, por favor, actívelo primero mediante el enlace de activación."
+            case "error_invalid_password":
+                error_text = "La contraseña es incorrecta, pruebe otra."
+            case 'error_club_does_not_exist':
+                error_text = "El club que está intentando borrar no existe."
+            case _:
+                error_text = "No se ha podido borrar el club. Inténtalo de nuevo."
+                print(e)
+
+        error_label.text = error_text
+        error_label.classes(remove='hidden')
+
+    return
 
 def club_tab_page(club: Club):
     with ui.row().classes('mt-3 w-full items-center justify-between gap-5'):
@@ -53,3 +99,27 @@ def club_tab_page(club: Club):
             with ui.column().classes('items-center gap-1 text-center justify-between'):
                 ui.label(len(club.squad)).classes('text-4xl text-primary font-black')
                 ui.label("Jugadores en plantilla").classes('text-lg font-bold text-slate-700')
+
+        with ui.dropdown_button(text="Borrar club", icon="delete", split=False).classes('absolute left-1/2 -translate-x-1/2 mb-5 ' \
+        'pt-3 pb-3 rounded-md font-bold fixed bottom-0'):
+            with ui.column().classes("p-4 gap-1 w-full text-center mb-2"):
+                ui.label("Admin info").classes('text-md text-slate-500')
+                admin_name = ui.input(label="Usuario").classes('w-full').props('standout="bg-primary text-white"')
+                admin_password = ui.input(label="Contraseña", password=True, password_toggle_button=True).classes('w-full').props('standout="bg-primary text-white"')
+                admin_password_repeat = ui.input(label="Repetir contraseña", password=True, password_toggle_button=True).classes('w-full').props('standout="bg-primary text-white"')
+
+                error_label = ui.label(text="").classes('text-md text-negative hidden')
+
+                (
+                    ui.button(
+                        text="Borrar",
+                        on_click=lambda: handle_delete_club(
+                            club_id=club.id,
+                            admin_name=admin_name.value,
+                            admin_password=admin_password.value,
+                            admin_password_repeat=admin_password_repeat.value,
+                            error_label=error_label
+                        )
+                    )
+                    .classes('w-full pt-3 pb-3 rounded-md font-bold')
+                )
