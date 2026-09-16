@@ -1,17 +1,30 @@
-from sqlalchemy import select
+import re
+from sqlalchemy import select, func
 
 from core import get_session
 from models import Club
 
+def _normalize_for_matching(name: str) -> str:
+    return re.sub(r"[\s\-_]+", "", name.strip().lower())
+
+def _normalized_name_column():
+    expr = func.lower(Club.name)
+    expr = func.replace(expr, " ", "")
+    expr = func.replace(expr, "-", "")
+    expr = func.replace(expr, "_", "")
+    return expr
+
 def create_club(name: str) -> Club:
     with get_session() as session:
-        stmt = select(Club).where(Club.name == name)
+        normalized_name = name.strip()
+        target = _normalize_for_matching(name=name)
+        stmt = select(Club).where(_normalized_name_column() == target)
         club = session.scalars(stmt).first()
 
         if club:
             raise ValueError("error_club_already_exists")
 
-        club = Club(name=name)
+        club = Club(name=normalized_name)
 
         session.add(club)
         session.commit()
@@ -35,7 +48,9 @@ def delete_club(club_id: int) -> bool:
 
 def update_club_name(club_id: int, new_name: str) -> None:
     with get_session() as session:
-        stmt = select(Club).where(Club.name == new_name)
+        normalized_name = new_name.strip()
+        target = _normalize_for_matching(normalized_name)
+        stmt = select(Club).where(_normalized_name_column() == target)
         existing_club = session.scalars(stmt).first()
 
         if existing_club and existing_club.id != club_id:
@@ -45,7 +60,7 @@ def update_club_name(club_id: int, new_name: str) -> None:
         if not club:
             raise ValueError("error_club_no_longer_exists")
         
-        club.name = new_name
+        club.name = normalized_name
         session.commit()
 
 def get_club_by_id(club_id: int) -> Club | None:
@@ -60,7 +75,8 @@ def get_club_by_id(club_id: int) -> Club | None:
 
 def get_club_by_name(name: str) -> Club | None:
     with get_session() as session:
-        stmt = select(Club).where(Club.name == name)
+        target = _normalize_for_matching(name)
+        stmt = select(Club).where(_normalized_name_column() == target)
         club = session.scalars(stmt).first()
         if club:
             session.expunge(club)

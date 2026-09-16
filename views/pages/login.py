@@ -3,22 +3,16 @@ from nicegui import ui, app
 from views.layout import frame
 
 from services.auth_service import authenticate_user
-from services.club_service import get_club_by_name
+from services.club_service import get_club_by_name, get_only_club
 
 def handle_login(
     club_id: int,
     name: str,
     password: str,
-    password_repeat: str,
     error_label: ui.label 
 ) -> None:
-    if not (club_id and name and password and password_repeat):
+    if not (club_id and name and password):
         error_label.text = "Por favor, rellena todos los campos antes de iniciar sesión."
-        error_label.classes(remove='hidden')
-        return
-
-    if password != password_repeat:
-        error_label.text = "Las contraseñas dadas no coinciden."
         error_label.classes(remove='hidden')
         return
 
@@ -38,22 +32,29 @@ def handle_login(
                 error_text = "Este usuario no está activo, por favor, actívelo primero mediante el enlace de activación."
             case "error_invalid_password":
                 error_text = "La contraseña es incorrecta, pruebe otra."
+            case _:
+                error_text = "No se ha podido iniciar sesión. Inténtalo de nuevo."
+                print(e)
 
         error_label.text = error_text
         error_label.classes(remove='hidden')
-        print(e)
 
     return
 
 @ui.page('/login')
-@ui.page('{club_name}/login')
-def login_page(club_name: str = "Grandiosa y Peluda") -> None:
+@ui.page('/{club_name}/login')
+def login_page(club_name: str | None = None) -> None:
     if app.storage.user.get("user_id", None):
         ui.navigate.to('/admin')
+        return
 
-    club = get_club_by_name(name=club_name)
+    club = get_club_by_name(name=club_name) if club_name else get_only_club()
 
     with frame(navigation_title="Iniciar Sesión"):
+        if not club:
+            ui.label("Club no encontrado.").classes("text-3xl font-black text-negative")
+            ui.label("No se ha encontrado ningún club con ese nombre.").classes('text-xl font-bold text-slate-700')
+
         with ui.column().classes("items-center gap-5 sm:gap-10 w-full text-center sm:mt-10"):
             ui.image('static/badge.png').classes('size-25')
 
@@ -67,7 +68,6 @@ def login_page(club_name: str = "Grandiosa y Peluda") -> None:
                     ui.label("Iniciar sesión").classes('text-md text-slate-500')
                     name = ui.input(label="Usuario").classes('w-full').props('standout="bg-primary text-white"')
                     password = ui.input(label="Contraseña", password=True, password_toggle_button=True).classes('w-full').props('standout="bg-primary text-white"')
-                    password_repeat = ui.input(label="Repetir contraseña", password=True, password_toggle_button=True).classes('w-full').props('standout="bg-primary text-white"')
 
                 error_label = ui.label(text="").classes('text-md text-negative hidden')
 
@@ -78,7 +78,6 @@ def login_page(club_name: str = "Grandiosa y Peluda") -> None:
                             club_id=club.id,
                             name=name.value,
                             password=password.value,
-                            password_repeat=password_repeat.value,
                             error_label=error_label
                         )
                     )

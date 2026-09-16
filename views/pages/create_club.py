@@ -33,9 +33,15 @@ def handle_create_club(
         ui.notify("¡El club se creó con éxito! Iniciando sesión en el dashboard de administrador.", type="positive")
         ui.navigate.to('/login')
     except ValueError as e:
-        error_label.text = "Este club ya existe, por favor, pruebe otro nombre."
+        match str(e):
+            case 'error_club_already_exists':
+                error_text = "Este club ya existe, por favor, pruebe otro nombre."
+            case _:
+                error_text = "No se ha podido iniciar sesión. Inténtalo de nuevo."
+                print(e)
+
+        error_label.text = error_text
         error_label.classes(remove='hidden')
-        print(e)
 
     return
     
