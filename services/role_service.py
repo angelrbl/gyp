@@ -16,7 +16,6 @@ def set_user_roles(user_id: int, roles: list[RoleType]) -> None:
 
         session.commit()
 
-
 def get_user_roles(user_id: int) -> list[RoleType]:
     with get_session() as session:
         stmt = select(UserRole).where(UserRole.user_id == user_id)

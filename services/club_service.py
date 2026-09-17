@@ -1,6 +1,6 @@
 import re
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from core import get_session
 from models import Club
@@ -69,7 +69,7 @@ def get_club_by_id(club_id: int) -> Club | None:
         return None
 
     with get_session() as session:
-        club = session.get(Club, club_id, options=[selectinload(Club.squad)])
+        club = session.get(Club, club_id)
         if club:
             session.expunge(club)
         return club
@@ -79,7 +79,6 @@ def get_club_by_name(name: str) -> Club | None:
         target = _normalize_for_matching(name)
         stmt = (
             select(Club)
-            .options(selectinload(Club.squad))
             .where(_normalized_name_column() == target)
         )
         club = session.scalars(stmt).first()
@@ -89,7 +88,7 @@ def get_club_by_name(name: str) -> Club | None:
 
 def get_only_club() -> Club | None:
     with get_session() as session:
-        stmt = select(Club).options(selectinload(Club.squad))
+        stmt = select(Club)
         club = session.scalars(stmt).first()
         if club:
             session.expunge(club)
@@ -98,3 +97,14 @@ def get_only_club() -> Club | None:
 def any_club_exists() -> bool:
     with get_session() as session:
         return session.scalars(select(Club)).first() is not None
+
+def get_squad_length(club_id: int) -> int | None:
+    if not club_id:
+        return None
+
+    with get_session() as session:
+        stmt = select(Club).where(Club.id == club_id).options(joinedload(Club.squad))
+        club = session.scalar(stmt)
+        if club:
+            return len(club.squad)
+        return None

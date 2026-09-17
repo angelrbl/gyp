@@ -1,7 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from core import get_session
-from models import User, Club
+from models import User, UserRole, RoleType
 
 def create_user(
     name: str,
@@ -76,10 +77,9 @@ def get_user_by_club_name(name: str, club_id: int) -> User | None:
             session.expunge(user)
         return user
 
-
 def list_users_for_club(club_id: int) -> list[User]:
     with get_session() as session:
         users = session.scalars(select(User).where(User.club_id == club_id)).all()
         for u in users:
             session.expunge(u)
-        return list(users)
+        return users

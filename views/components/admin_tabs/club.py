@@ -2,7 +2,7 @@ from nicegui import app, ui
 
 from models import Club
 
-from services.club_service import update_club_name, delete_club
+from services.club_service import update_club_name, delete_club, get_squad_length
 from services.auth_service import authenticate_user
 
 
@@ -77,8 +77,8 @@ def handle_delete_club(
 
 def club_tab_page(club: Club):
     with ui.row().classes('mt-3 w-full items-center justify-between gap-5'):
-        with ui.card().classes('w-full bg-primary/40 p-7 rounded-xl'):
-            ui.label("Datos del club").classes('text-xl text-primary font-black')
+        with ui.card().classes('w-full p-4 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
+            ui.label("Datos del club").classes('text-xl text-gray-900 font-bold')
             name = ui.input(
                 label="Nombre del club",
                 value=club.name,
@@ -95,10 +95,10 @@ def club_tab_page(club: Club):
                 )
             ).classes('w-full pt-3 pb-3 rounded-md font-bold')
         
-        with ui.card().classes('w-full bg-primary/40 p-7 rounded-xl items-center'):
+        with ui.card().classes('w-full p-4 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2 items-center pt-5 pb-5'):
             with ui.column().classes('items-center gap-1 text-center justify-between'):
-                ui.label(len(club.squad)).classes('text-4xl text-primary font-black')
-                ui.label("Jugadores en plantilla").classes('text-lg font-bold text-slate-700')
+                ui.label(get_squad_length(club_id=club.id)).classes('text-4xl text-primary font-black')
+                ui.label("Jugadores en plantilla").classes('text-lg font-bold text-gray-900')
 
         with ui.dropdown_button(text="Borrar club", icon="delete", split=False).classes('absolute left-1/2 -translate-x-1/2 mb-5 ' \
         'pt-3 pb-3 rounded-md font-bold fixed bottom-0'):

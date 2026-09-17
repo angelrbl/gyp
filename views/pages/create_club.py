@@ -2,8 +2,11 @@ from nicegui import ui, app
 
 from views.layout import frame
 
+from models import RoleType
+
 from services.club_service import create_club
 from services.user_service import create_user
+from services.role_service import set_user_roles
 
 def handle_create_club(
     club_name: str,
@@ -27,6 +30,7 @@ def handle_create_club(
         app.storage.user['club_id'] = club.id
 
         user = create_user(name=admin_name, club_id=club.id, password=admin_password, is_admin=True)
+        set_user_roles(user_id=user.id, roles=[RoleType.STAFF])
         app.storage.user['user_id'] = user.id
         app.storage.user['is_admin'] = True
 
