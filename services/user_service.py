@@ -7,6 +7,7 @@ from models import User, UserRole, RoleType
 def create_user(
     name: str,
     club_id: int,
+    number: int | None = None,
     password: str | None = None,
     email:str | None = None,
     is_admin: bool = False
@@ -18,7 +19,7 @@ def create_user(
         if user:
             raise ValueError("error_user_already_exists")
 
-        user = User(name=name, email=email, club_id=club_id, is_admin=is_admin)
+        user = User(name=name, email=email, club_id=club_id, is_admin=is_admin, number=number)
 
         if password:
             user.password = password
