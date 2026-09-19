@@ -2,7 +2,7 @@ from nicegui import app, ui
 
 from models import User, Club, RoleType
 
-from services.user_service import list_users_for_club, create_user
+from services.user_service import list_users_for_club, create_user, update_user
 from services.role_service import get_user_roles, set_user_roles
 from services.token_service import create_activation_token
 
@@ -10,44 +10,65 @@ def handle_create_activation_link(user: User):
     if user.is_active:
         ui.notify('¡Este usuario ya está activo!', type="positive")
         return
-    
+ 
+    try:
+        token = create_activation_token(user_id=user.id)
+    except ValueError as e:
+        ui.notify(f"El usuario no existe, pruebe de nuevo.", type="negative")
+        return
+ 
     with ui.dialog() as dialog:
-        try:
-            token = create_activation_token(user_id=user.id)
-            with ui.card().classes('w-full p-4 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
-                with ui.row().classes('w-full gap-2 p-2 border border-gray-300 rounded-lg shadow-none'):
-                    ui.label(token.value).classes('text-gray-900 text-md')
-                    async def clip():
-                        await ui.run_javascript(f'navigator.clipboard.writeText("{token.value}")')
+        with ui.card().classes('w-full p-6 pl-8 pr-8 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
+            ui.label("Link de activación").classes
+            with ui.row().classes('w-full gap-2 p-2 border border-gray-300 rounded-lg shadow-none justify-between items-center'):
+                ui.label(f"localhost:8080/{token.value}").classes('text-gray-900 text-md p-2')
+ 
+                async def clip():
+                    await ui.run_javascript(f'navigator.clipboard.writeText("{token.value}")')
+ 
+                ui.button(icon="content_copy", on_click=clip)
+    dialog.open()
 
-                    ui.button('Clip', on_click=clip)
-        except:
-            ui.notify("El usuario no existe, pruebe de nuevo.")
-            dialog.close()
-
-def handle_create_user(
+def handle_user(
     club_id: int,
     name: str,
     error_label: ui.label,
+    action: str,
+    user_id: int | None = None,
     number: int | None = None,
     roles: list[RoleType] | None = None
 ) -> None:
     if not (club_id and name):
-        error_label.text = "Por favor, rellena todos los campos antes de eliminar el club."
+        error_label.text = "Por favor, rellena todos los campos antes confirmar."
         error_label.classes(remove='hidden')
         return
 
     try:
-        user = create_user(club_id=club_id, name=name, number=number)
+        match action:
+            case 'create':
+                user = create_user(club_id=club_id, name=name, number=number)
+            case 'edit':
+                user = update_user(user_id=user_id, new_name=name, new_number=number)
+            case _:
+                error_label.text = "Acción desconocida."
+                error_label.classes(remove='hidden')
+                return
         set_user_roles(user_id=user.id, roles=roles)
-        ui.notify("Jugador creado éxitosamente", type="positive")
+        ui.notify(
+            "Jugador creado correctamente" if action == "create" else "Jugador editado correctamente",
+            type="positive",
+        )   
         ui.navigate.reload()
     except ValueError as e:
         match str(e):
             case "error_user_already_exists":
                 error_text = "El usuario ya existe en este club, pruebe otro."
+            case "error_user_no_longer_exists":
+                error_text = "Este usuario ya no existe, pruebe otra vez."
+            case "error_name_or_number_already_exists":
+                error_text = "O el nombre o el dorsal ya están en uso, pruebe otros."
             case _:
-                error_text = "No se ha podido borrar el club. Inténtalo de nuevo."
+                error_text = "No se ha podido guardar el jugador. Inténtalo de nuevo."
                 print(e)
 
         error_label.text = error_text
@@ -67,24 +88,25 @@ def squad_tab_page(club: Club):
                 .props('unelevated no-caps') \
                 .classes('bg-primary text-white hover:bg-secondary text-sm font-medium rounded-lg px-3 py-1.5'):
                 with ui.column().classes("p-4 gap-1 w-full text-center mb-2"):
-                    ui.label("User info").classes('text-md text-slate-500')
+                    ui.label("User info").classes('text-md text-slate-500').classes('text-md text-gray-900')
                     with ui.row().classes('w-full gap-1'):
-                        name = ui.input(label="Nombre").props('standout="bg-primary text-white"')
-                        number = ui.number(label="Dorsal", min=1, max=99, step=1).props('standout="bg-primary text-white"')
+                        create_name = ui.input(label="Nombre").props('standout="bg-primary text-white"')
+                        create_number = ui.number(label="Dorsal", min=1, max=99, step=1).props('standout="bg-primary text-white"')
 
-                    roles = ui.select({rt: rt.value.title() for rt in RoleType}, clearable=True, multiple=True, label="Roles").classes('w-full mb-2').props('use-chips')
+                    create_roles = ui.select({rt: rt.value.title() for rt in RoleType}, clearable=True, multiple=True, label="Roles").classes('w-full mb-2').props('use-chips')
     
-                    error_label = ui.label(text="").classes('text-md text-negative hidden')
+                    create_error_label = ui.label(text="").classes('text-md text-negative hidden')
     
                     (
                         ui.button(
                             text="Crear",
-                            on_click=lambda: handle_create_user(
+                            on_click=lambda: handle_user(
                                 club_id=club.id,
-                                name=name.value,
-                                number=number.value,
-                                roles=roles.value or [],
-                                error_label=error_label
+                                name=create_name.value,
+                                number=create_number.value,
+                                action="create",
+                                roles=create_roles.value or [],
+                                error_label=create_error_label
                             )
                         )
                         .classes('w-full pt-3 pb-3 rounded-md font-bold')
@@ -96,9 +118,18 @@ def squad_tab_page(club: Club):
             with ui.card().classes('w-full p-4 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
                 
                 with ui.row().classes('w-full justify-between items-start no-wrap'):
-                    with ui.column().classes('gap-0'):
-                        ui.label(user.name).classes('font-semibold text-gray-900 text-base leading-tight')
-                        ui.label(user.email).classes('text-sm text-gray-500')
+                    with ui.row().classes('gap-1'):
+                        if RoleType.CAPTAIN in user_roles:
+                            ui.label("C").classes('font-bold text-md text-primary')
+                            ui.label("|").classes('font-black text-sm text-gray-900')
+
+                        if user.number:
+                            ui.label(f"{user.number}").classes('font-black text-sm text-gray-900')
+                            ui.label("|").classes('font-black text-sm text-gray-900')
+
+                        with ui.column().classes('gap-0'):
+                            ui.label(user.name).classes('font-semibold text-gray-900 text-base leading-tight')
+                            ui.label(user.email or '').classes('text-sm text-gray-500')
 
                     if RoleType.STAFF in user_roles:
                         badge_style = 'bg-green-100 text-green-700' if user.is_active else 'bg-amber-100 text-amber-700'
@@ -119,8 +150,36 @@ def squad_tab_page(club: Club):
                             .classes('text-gray-400 hover:text-gray-700 hover:bg-gray-200')
 
                         
-                        ui.button(icon='edit').props('flat round density=compact') \
-                            .classes('text-gray-400 hover:text-gray-700 hover:bg-gray-200')
+                        with ui.dropdown_button(icon='edit').props('flat round density=compact') \
+                            .classes('text-gray-400 hover:text-gray-700 hover:bg-gray-200'):
+                            with ui.column().classes("p-4 gap-1 w-full text-center mb-2"):
+                                ui.label("User info").classes('text-md text-slate-500')
+                                with ui.row().classes('w-full gap-1'):
+                                    edit_name = ui.input(label="Nombre", value=user.name).props('standout="bg-primary text-white"')
+                                    edit_number = ui.number(label="Dorsal", min=1, max=99, step=1, value=user.number).props('standout="bg-primary text-white"')
+            
+                                edit_roles = ui.select(
+                                    {rt: rt.value.title() for rt in RoleType},
+                                    value=user_roles,
+                                    clearable=True, multiple=True, label="Roles").classes('w-full mb-2').props('use-chips')
+                
+                                edit_error_label = ui.label(text="").classes('text-md text-negative hidden')
+                
+                                (
+                                    ui.button(
+                                        text="Editar",
+                                        on_click=lambda usr_id=user.id, n=edit_name, num=edit_number, r=edit_roles, err=edit_error_label: handle_user(
+                                            club_id=club.id,
+                                            name=n.value,
+                                            number=num.value,
+                                            action="edit",
+                                            user_id=usr_id,
+                                            roles=r.value or [],
+                                            error_label=err,
+                                        )
+                                    )
+                                    .classes('w-full pt-3 pb-3 rounded-md font-bold')
+                                )
                         
                         ui.button(icon='delete').props('flat round density=compact') \
                             .classes('text-gray-400 hover:text-primary hover:bg-accent')

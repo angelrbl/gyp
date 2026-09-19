@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 
 from core import get_session
@@ -45,20 +45,26 @@ def delete_user(user_id: int) -> bool:
 
         return True
 
-def update_user_name(user_id: int, new_name: str) -> None:
+def update_user(user_id: int, new_name: str, new_number: int | None = None) -> User | None:
     with get_session() as session:
         user = session.get(User, user_id)
         if not user:
             raise ValueError("error_user_no_longer_exists")
         
-        stmt = select(User).where(User.name == new_name, User.club_id == user.club_id)
+        stmt = select(User).where(or_(User.name == new_name, User.number == new_number), User.club_id == user.club_id)
         existing_user = session.scalar(stmt)
 
         if existing_user and existing_user.id != user_id:
-            raise ValueError("error_name_already_exists")
+            raise ValueError("error_name_or_number_already_exists")
 
         user.name = new_name
+        user.number = new_number
         session.commit()
+
+        session.refresh(user)
+        session.expunge(user)
+
+        return user
 
 def get_user_by_id(user_id: int) -> User | None:
     if not user_id:

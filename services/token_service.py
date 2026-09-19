@@ -20,7 +20,7 @@ def create_activation_token(user_id: int, days_valid: int = 14) -> Token:
         token = Token(
             type=TokenType.ACTIVATION,
             user_id=user_id,
-            expires_at=datetime.now(datetime.timezone.utc) + timedelta(days=days_valid),
+            expires_at=datetime.now() + timedelta(days=days_valid),
         )
 
         session.add(token)
