@@ -2,11 +2,11 @@ from nicegui import app, ui
 
 from models import User, Club, RoleType
 
-from services.user_service import list_users_for_club, create_user, update_user
+from services.user_service import list_users_for_club, create_user, update_user, delete_user
 from services.role_service import get_user_roles, set_user_roles
 from services.token_service import create_activation_token
 
-def handle_create_activation_link(user: User):
+def handle_create_activation_link(user: User) -> None:
     if user.is_active:
         ui.notify('¡Este usuario ya está activo!', type="positive")
         return
@@ -21,7 +21,7 @@ def handle_create_activation_link(user: User):
         with ui.card().classes('w-full p-6 pl-8 pr-8 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
             ui.label("Link de activación").classes
             with ui.row().classes('w-full gap-2 p-2 border border-gray-300 rounded-lg shadow-none justify-between items-center'):
-                ui.label(f"localhost:8080/{token.value}").classes('text-gray-900 text-md p-2')
+                ui.label(f"localhost:8080/e/{token.value}").classes('text-gray-900 text-md p-2')
  
                 async def clip():
                     await ui.run_javascript(f'navigator.clipboard.writeText("{token.value}")')
@@ -34,6 +34,7 @@ def handle_user(
     name: str,
     error_label: ui.label,
     action: str,
+    on_change: callable,
     user_id: int | None = None,
     number: int | None = None,
     roles: list[RoleType] | None = None
@@ -58,7 +59,7 @@ def handle_user(
             "Jugador creado correctamente" if action == "create" else "Jugador editado correctamente",
             type="positive",
         )   
-        ui.navigate.reload()
+        on_change()
     except ValueError as e:
         match str(e):
             case "error_user_already_exists":
@@ -76,7 +77,15 @@ def handle_user(
 
     return
 
-def squad_tab_page(club: Club):
+def handle_delete_user(user_id: int, on_change: callable) -> None:
+    try:
+        delete_user(user_id=user_id)
+        ui.notify("¡Usuario borrado con éxito!", type="positive")
+        on_change()
+    except ValueError as e:
+        ui.notify("El usuario que intentas borrar no existe, prueba de nuevo.", type="negative")
+
+def squad_tab_page(club: Club, on_change: callable) -> None:
     with ui.column().classes('w-full max-w-lg mx-auto min-h-screen p-4 gap-4'):
 
         squad = list_users_for_club(club_id=club.id)
@@ -105,6 +114,7 @@ def squad_tab_page(club: Club):
                                 name=create_name.value,
                                 number=create_number.value,
                                 action="create",
+                                on_change=on_change,
                                 roles=create_roles.value or [],
                                 error_label=create_error_label
                             )
@@ -173,6 +183,7 @@ def squad_tab_page(club: Club):
                                             name=n.value,
                                             number=num.value,
                                             action="edit",
+                                            on_change=on_change,
                                             user_id=usr_id,
                                             roles=r.value or [],
                                             error_label=err,
@@ -181,5 +192,17 @@ def squad_tab_page(club: Club):
                                     .classes('w-full pt-3 pb-3 rounded-md font-bold')
                                 )
                         
-                        ui.button(icon='delete').props('flat round density=compact') \
-                            .classes('text-gray-400 hover:text-primary hover:bg-accent')
+                        with ui.dropdown_button().props('flat round density=compact dropdown-icon="delete" no-icon-animation') \
+                            .classes('text-gray-400 hover:text-primary hover:bg-accent'):
+                            with ui.column().classes("p-4 gap-1 w-full text-center mb-2 items-center"):
+                                ui.label("¿Estás seguro?").classes('font-bold text-md text-slate-600')
+                                ui.label("No podrás recuperar los datos.").classes('text-sm mb-1 text-slate-500')
+                                (
+                                    ui.button(
+                                        text="Borrar",
+                                        on_click=lambda usr_id=user.id: handle_delete_user(
+                                            user_id=usr_id,
+                                            on_change=on_change
+                                        )
+                                    )
+                                )

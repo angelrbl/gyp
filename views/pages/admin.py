@@ -26,12 +26,16 @@ def admin_page() -> None:
             squad_tab = ui.tab('Plantilla', icon='groups')
             events_tab = ui.tab('Eventos', icon='event')
 
-        with ui.tab_panels(tabs, value=events_tab).classes('w-full'):
-            with ui.tab_panel(club_tab):
-                club_tab_page(club=club)
+        @ui.refreshable
+        def render_admin_tabs(value: ui.tab = events_tab):
+            with ui.tab_panels(tabs, value=value).classes('w-full'):
+                with ui.tab_panel(club_tab):
+                    club_tab_page(club=club)
 
-            with ui.tab_panel(squad_tab):
-                squad_tab_page(club=club)
+                with ui.tab_panel(squad_tab):
+                    squad_tab_page(club=club, on_change=lambda: render_admin_tabs.refresh(value=squad_tab))
 
-            with ui.tab_panel(events_tab):
-                ui.label('Events tab')
+                with ui.tab_panel(events_tab):
+                    ui.label('Events tab')
+
+        render_admin_tabs()
