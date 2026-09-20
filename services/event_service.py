@@ -51,7 +51,7 @@ def create_event(
         raise ValueError("error_event_needs_at_least_one_slot")
 
     with get_session() as session:
-        opponent_club = get_club_by_name(name=opponent_name)
+        opponent_club = get_club_by_name(name=opponent_name) if opponent_name else None
 
         event = Event(
             club_id=club_id,
