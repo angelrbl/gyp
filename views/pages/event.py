@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from nicegui import ui
 
@@ -46,8 +46,6 @@ def render_confirmed_event(event) -> None:
                 ui.label(f"{DAYS[slot.day.weekday()]} {slot.day:%d/%m} · {slot.start_time:%H:%M}").classes(
                     "text-dark text-base font-bold"
                 )
-            # Antes: on_click navegaba a "None" (el import de google_calendar_url
-            # se había perdido al adaptar el archivo) — el botón no hacía nada.
             ui.button(
                 "Añadir a mi calendario",
                 on_click=lambda: ui.navigate.to(None, new_tab=True),
@@ -64,12 +62,23 @@ def render_open_event(event) -> None:
     all_times = sorted({slot.start_time for slot in slots})
     slot_lookup = {(slot.day, slot.start_time): slot for slot in slots}
 
-    state = {"user_id": None}
+    def week_start(d: date) -> date:
+        return d - timedelta(days=d.weekday())
+
+    days_by_week: dict[date, list[date]] = {}
+    for day in all_days:
+        days_by_week.setdefault(week_start(day), []).append(day)
+    week_starts = sorted(days_by_week.keys())
+
+    today_week = week_start(date.today())
+    default_week_index = week_starts.index(today_week) if today_week in week_starts else 0
+
+    state = {"user_id": None, "week_index": default_week_index}
     slot_buttons: dict[int, ui.button] = {}
     selected_slots: dict[int, bool] = {}
     count_label_ref: dict[str, ui.label] = {}
 
-    BASE_CLASSES = "h-10 w-full min-w-0 rounded-md border text-xs font-medium transition-colors"
+    BASE_CLASSES = "h-10 w-full min-w-0 rounded-lg border text-sm font-semibold transition-colors"
     UNSELECTED = "bg-white text-dark border-gray-300"
     SELECTED = "bg-primary text-white border-primary"
 
@@ -102,50 +111,63 @@ def render_open_event(event) -> None:
         set_unavailability(user_id=state["user_id"], event_id=event.id, slot_ids=chosen)
         ui.notify("¡Guardado!", type="positive")
 
+    def change_week(delta: int) -> None:
+        new_index = state["week_index"] + delta
+        if 0 <= new_index < len(week_starts):
+            state["week_index"] = new_index
+            render_grid.refresh()
+
     @ui.refreshable
     def render_grid() -> None:
         slot_buttons.clear()
-        selected_slots.clear()
-        count_label_ref.pop("label", None)
 
         if not state["user_id"]:
             ui.label("Elige tu nombre arriba para ver y marcar las franjas.").classes("text-sm text-gray-500 mt-4")
             return
 
-        my_unavailable = get_user_unavailable_slot_ids(state["user_id"], event.id)
-        for slot in slots:
-            selected_slots[slot.id] = slot.id in my_unavailable
-
-        with ui.row().classes("items-start gap-2 mt-3 p-3 bg-primary/10 rounded-lg no-wrap"):
-            ui.icon("warning").classes("text-primary text-base flex-shrink-0")
-            ui.label("Marca solo las franjas en las que NO puedes asistir.").classes(
-                "text-primary text-xs leading-relaxed"
-            )
-
         if not slots:
             ui.label("Este evento no tiene franjas candidatas todavía.").classes("mt-4 text-sm text-gray-500")
             return
 
-        # Rejilla tipo calendario: filas = horas, columnas = días. Como todas
-        # las franjas de un evento comparten ventana y duración, las horas
-        # coinciden entre días -> se puede alinear en una tabla de verdad.
-        # overflow-x-auto: en móvil, con muchos días, se desliza en vez de
-        # apretujarse ilegible.
-        with ui.element("div").classes("w-full overflow-x-auto mt-4"):
-            grid_style = f"grid-template-columns: 48px repeat({len(all_days)}, minmax(52px, 1fr));"
-            with ui.element("div").classes("grid gap-1").style(grid_style):
-                ui.element("div")  # esquina vacía
-                for day in all_days:
+        with ui.row().classes("items-start gap-2 mt-3 p-3 pl-0 bg-primary/10 rounded-lg no-wrap"):
+            ui.icon("warning").classes("text-primary text-base flex-shrink-0 font-black")
+            ui.label("Marca solo las franjas en las que NO puedes asistir.").classes(
+                "text-primary text-xs leading-relaxed font-bold"
+            )
+
+        current_week_start = week_starts[state["week_index"]]
+        current_week_days = days_by_week[current_week_start]
+        current_week_end = current_week_start + timedelta(days=6)
+        is_first_week = state["week_index"] == 0
+        is_last_week = state["week_index"] == len(week_starts) - 1
+
+        # Navegación entre semanas
+        with ui.row().classes("items-center justify-between w-full no-wrap mt-4"):
+            ui.button(icon="chevron_left", on_click=lambda: change_week(-1)).props(
+                "flat round dense" + (" disable" if is_first_week else "")
+            ).classes("text-primary")
+            ui.label(f"{current_week_start:%d/%m} - {current_week_end:%d/%m}").classes(
+                "text-base font-bold text-dark"
+            )
+            ui.button(icon="chevron_right", on_click=lambda: change_week(1)).props(
+                "flat round dense" + (" disable" if is_last_week else "")
+            ).classes("text-primary")
+
+        grid_style = f"grid-template-columns: 56px repeat({len(current_week_days)}, minmax(64px, 1fr));"
+        with ui.element("div").classes("w-full overflow-x-auto mt-3"):
+            with ui.element("div").classes("grid gap-1 sm:gap-2").style(grid_style):
+                ui.element("div")
+                for day in current_week_days:
                     with ui.column().classes("items-center gap-0"):
-                        ui.label(DAYS[day.weekday()][:3].capitalize()).classes("text-xs font-semibold text-dark")
-                        ui.label(f"{day:%d/%m}").classes("text-[10px] text-gray-500")
+                        ui.label(DAYS[day.weekday()][:3].capitalize()).classes("text-sm font-semibold text-dark")
+                        ui.label(f"{day:%d/%m}").classes("text-xs text-gray-500")
 
                 for t in all_times:
                     ui.label(f"{t:%H:%M}").classes("text-xs text-gray-500 flex items-center")
-                    for day in all_days:
+                    for day in current_week_days:
                         slot = slot_lookup.get((day, t))
                         if slot is None:
-                            ui.element("div")  # ese día no tiene franja a esta hora
+                            ui.element("div")
                             continue
                         btn = (
                             ui.button(on_click=lambda sid=slot.id: toggle_slot(sid))
@@ -155,18 +177,23 @@ def render_open_event(event) -> None:
                         slot_buttons[slot.id] = btn
                         style_slot_button(slot.id)
 
-        with ui.row().classes("items-center justify-between w-full no-wrap mt-4"):
-            count_label_ref["label"] = ui.label("").classes("text-gray-500 text-xs")
-            ui.button("Guardar disponibilidad", on_click=save).props("unelevated").classes(
-                "bg-primary text-white rounded-lg"
+        with ui.column().classes("items-center justify-between w-full no-wrap gap-2"):
+            count_label_ref["label"] = ui.label("").classes("text-gray-800 font-semibold text-xs mt-4")
+            ui.button("Guardar", on_click=save).props("unelevated").classes(
+                "bg-primary text-white rounded-lg w-full"
             )
         update_count()
 
     def on_pick(e) -> None:
         state["user_id"] = e.value
+        my_unavailable = get_user_unavailable_slot_ids(state["user_id"], event.id)
+        selected_slots.clear()
+        for slot in slots:
+            selected_slots[slot.id] = slot.id in my_unavailable
+        state["week_index"] = default_week_index
         render_grid.refresh()
 
-    with ui.column().classes("w-full max-w-lg mx-auto gap-1"):
+    with ui.column().classes("w-full max-w-2xl mx-auto gap-1"):
         ui.label(event.title).classes("text-lg font-bold text-dark")
         if event.opponent_name:
             ui.label(f"vs. {event.opponent_name}").classes("text-dark text-sm")
@@ -180,6 +207,6 @@ def render_open_event(event) -> None:
             label="¿Quién eres?",
             with_input=True,
             on_change=on_pick,
-        ).classes("w-full mt-3")
+        ).classes("w-full mt-3").props('standout="bg-primary text-white"')
 
         render_grid()

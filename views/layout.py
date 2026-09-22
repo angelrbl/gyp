@@ -7,6 +7,7 @@ def require_login() -> bool:
         return False
     return True
 
+APP_BASE_URL = "http://localhost:8080"
 
 def logout() -> None:
     app.storage.user.clear()

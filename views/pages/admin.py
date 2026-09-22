@@ -1,7 +1,7 @@
 from nicegui import ui, app
 
 from views.layout import frame
-from views.components.admin_tabs import club_tab_page, squad_tab_page
+from views.components.admin_tabs import club_tab_page, squad_tab_page, events_tab_page
 
 from services.club_service import get_club_by_id
 
@@ -36,6 +36,6 @@ def admin_page() -> None:
                     squad_tab_page(club=club, on_change=lambda: render_admin_tabs.refresh(value=squad_tab))
 
                 with ui.tab_panel(events_tab):
-                    ui.label('Events tab')
+                    events_tab_page(club=club)
 
         render_admin_tabs()

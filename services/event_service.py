@@ -74,6 +74,18 @@ def create_event(
         session.expunge(event)
         return event
 
+def delete_event(event_id: int) -> bool:
+    with get_session() as session:
+        event = session.get(Event, event_id)
+
+        if not event:
+            raise ValueError("error_event_does_not_exist")
+
+        session.delete(event)
+        session.commit()
+
+        return True
+
 def list_events_for_club(club_id: int) -> list[Event]:
     with get_session() as session:
         stmt = select(Event).where(Event.club_id == club_id).order_by(Event.id.desc())
