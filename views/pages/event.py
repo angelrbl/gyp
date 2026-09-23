@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from nicegui import ui
 
@@ -30,26 +30,58 @@ def event_page(token_value: str):
             render_confirmed_event(event)
 
 
+def build_ics(event, slot) -> bytes:
+    """Genera un fichero .ics mínimo para el horario confirmado."""
+    start_dt = datetime.combine(slot.day, slot.start_time)
+    end_dt = start_dt + timedelta(hours=1)
+    summary = event.title if not event.opponent_name else f"{event.title} vs. {event.opponent_name}"
+
+    def fmt(dt: datetime) -> str:
+        return dt.strftime('%Y%m%dT%H%M%S')
+
+    ics = (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//Club App//ES\r\n"
+        "BEGIN:VEVENT\r\n"
+        f"UID:{event.id}-{slot.id}@club-app\r\n"
+        f"DTSTAMP:{fmt(datetime.now())}\r\n"
+        f"DTSTART:{fmt(start_dt)}\r\n"
+        f"DTEND:{fmt(end_dt)}\r\n"
+        f"SUMMARY:{summary}\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+    return ics.encode()
+
+
 def render_confirmed_event(event) -> None:
     slot = get_slot_by_id(event.confirmed_slot_id) if event.confirmed_slot_id else None
+    is_past = event.status == EventStatus.PAST
 
     with ui.column().classes("w-full max-w-lg mx-auto gap-1"):
-        ui.label(event.title).classes("text-lg font-bold text-dark")
+        with ui.row().classes("w-full items-center justify-between no-wrap"):
+            ui.label(event.title).classes("text-lg font-bold text-dark")
+            badge_text = "Pasado" if is_past else "Confirmado"
+            badge_style = "bg-gray-200 text-gray-600" if is_past else "bg-primary/10 text-primary"
+            ui.label(badge_text).classes(f"px-2.5 py-0.5 text-xs font-medium rounded-full {badge_style}")
+
         if event.opponent_name:
             ui.label(f"vs. {event.opponent_name}").classes("text-dark text-sm")
 
-        if event.status == EventStatus.PAST:
-            ui.label("Este evento ya ha pasado.").classes("mt-4 text-sm text-gray-500")
-        elif slot:
+        if slot:
             with ui.column().classes("gap-1 mt-4 p-4 bg-primary/10 rounded-lg"):
                 ui.label("Horario confirmado").classes("text-primary text-xs font-semibold")
-                ui.label(f"{DAYS[slot.day.weekday()]} {slot.day:%d/%m} · {slot.start_time:%H:%M}").classes(
-                    "text-dark text-base font-bold"
-                )
-            ui.button(
-                "Añadir a mi calendario",
-                on_click=lambda: ui.navigate.to(None, new_tab=True),
-            ).props('unelevated').classes("mt-4 w-full bg-primary text-white rounded-lg")
+                ui.label(
+                    f"{DAYS[slot.day.weekday()].capitalize()} {slot.day:%d/%m} · {slot.start_time:%H:%M}"
+                ).classes("text-dark text-base font-bold")
+
+            if not is_past:
+                ui.button(
+                    "Añadir a mi calendario",
+                    icon="event",
+                    on_click=lambda: ui.download(build_ics(event, slot), f"{event.title}.ics"),
+                ).props("unelevated").classes("mt-4 w-full bg-primary text-white rounded-lg")
         else:
             ui.label("Este evento está confirmado, pero falta el horario.").classes("mt-4 text-sm text-gray-500")
 
@@ -141,7 +173,6 @@ def render_open_event(event) -> None:
         is_first_week = state["week_index"] == 0
         is_last_week = state["week_index"] == len(week_starts) - 1
 
-        # Navegación entre semanas
         with ui.row().classes("items-center justify-between w-full no-wrap mt-4"):
             ui.button(icon="chevron_left", on_click=lambda: change_week(-1)).props(
                 "flat round dense" + (" disable" if is_first_week else "")

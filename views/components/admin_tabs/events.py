@@ -24,6 +24,12 @@ STATUS_BADGE = {
     EventStatus.PAST: ("Pasado", "bg-gray-200 text-gray-600"),
 }
 
+RANK_STYLE = {
+    0: ("bg-amber-400", "text-white", "emoji_events"),
+    1: ("bg-slate-300", "text-white", "military_tech"),
+    2: ("bg-amber-700", "text-white", "military_tech"),
+}
+
 
 def handle_confirm_slot(event_id: int, slot_id: int, dialog) -> None:
     confirm_slot(event_id, slot_id)
@@ -32,20 +38,30 @@ def handle_confirm_slot(event_id: int, slot_id: int, dialog) -> None:
     ui.navigate.reload()
 
 
+def handle_delete_event(event_id: int, on_change=None) -> None:
+    delete_event(event_id)
+    ui.notify("Evento eliminado", type="positive")
+    if on_change:
+        on_change()
+    else:
+        ui.navigate.reload()
+
+
 def confirm_delete_event(event_id: int, parent_dialog=None) -> None:
-    """Pide confirmación antes de borrar un evento. Si se llama desde el
-    diálogo de detalle, `parent_dialog` se cierra también al confirmar."""
+    """Diálogo de confirmación usado desde el botón de texto 'Eliminar evento'
+    dentro del detalle del evento (aquí sí tiene sentido un modal, porque ya
+    estamos dentro de otro diálogo grande)."""
 
     def do_delete() -> None:
-        delete_event(event_id)
         confirm_dialog.close()
         if parent_dialog:
             parent_dialog.close()
-        ui.notify("Evento eliminado", type="positive")
-        ui.navigate.reload()
+        handle_delete_event(event_id)
 
     with ui.dialog() as confirm_dialog, ui.card().classes('w-full max-w-sm p-5 gap-3 rounded-2xl'):
-        ui.label('¿Eliminar este evento?').classes('text-base font-bold text-gray-900')
+        with ui.row().classes('items-center gap-2'):
+            ui.icon('warning', color='negative').classes('text-2xl')
+            ui.label('¿Eliminar este evento?').classes('text-base font-bold text-gray-900')
         ui.label(
             'Esta acción no se puede deshacer y se perderán las respuestas de disponibilidad asociadas.'
         ).classes('text-sm text-gray-500')
@@ -55,6 +71,80 @@ def confirm_delete_event(event_id: int, parent_dialog=None) -> None:
                 'bg-red-600 text-white rounded-lg'
             )
     confirm_dialog.open()
+
+
+def open_best_slots_view(event, slots, baja_counts, total_users) -> None:
+    if not slots:
+        ui.notify('Este evento no tiene franjas candidatas.', type='warning')
+        return
+
+    ranked = sorted(slots, key=lambda s: (baja_counts.get(s.id, 0), s.day, s.start_time))[:5]
+
+    with ui.dialog() as dialog, ui.card().tight().classes(
+        'w-full max-w-sm rounded-[28px] overflow-hidden shadow-2xl'
+    ):
+        with ui.column().classes(
+            'w-full items-center gap-1 px-6 pt-8 pb-7 bg-primary text-white'
+        ):
+            ui.image('static/badge.png').classes('size-20 text-amber-300 drop-shadow mb-1')
+            ui.label(event.title).classes('text-xl font-black text-center leading-tight')
+            if event.opponent_name:
+                ui.label(f"vs. {event.opponent_name}").classes('text-sm text-white/80')
+            ui.label('SOM-HI!').classes(
+                'text-[11px] font-bold tracking-[0.25em] text-white/70 mt-3'
+            )
+
+        with ui.column().classes('w-full gap-2.5 px-5 py-5 bg-white'):
+            for i, slot in enumerate(ranked):
+                count = baja_counts.get(slot.id, 0)
+                available = total_users - count if total_users else None
+                ratio = (available / total_users) if total_users else None
+                is_top = i == 0
+                rank_bg, rank_text, rank_icon = RANK_STYLE.get(i, ("bg-gray-200", "text-gray-600", None))
+
+                row_classes = (
+                    'w-full items-center justify-between p-3.5 rounded-2xl border no-wrap gap-3 transition-all'
+                )
+                row_classes += (
+                    ' bg-amber-50 border-amber-200 shadow-sm'
+                    if is_top
+                    else ' bg-gray-50 border-gray-100'
+                )
+
+                with ui.row().classes(row_classes):
+                    with ui.row().classes('items-center gap-3 no-wrap'):
+                        with ui.element('div').classes(
+                            f'w-9 h-9 flex items-center justify-center rounded-full flex-shrink-0 {rank_bg} {rank_text}'
+                        ):
+                            if rank_icon:
+                                ui.icon(rank_icon).classes('text-lg')
+                            else:
+                                ui.label(str(i + 1)).classes('text-sm font-black')
+
+                        with ui.column().classes('gap-0'):
+                            ui.label(
+                                f"{DIAS_ES[slot.day.weekday()].capitalize()} {slot.day:%d/%m}"
+                            ).classes('text-sm font-bold text-gray-900 leading-tight')
+                            ui.label(f"{slot.start_time:%H:%M}").classes('text-xs text-gray-500')
+
+                    with ui.column().classes('items-end gap-1 flex-shrink-0'):
+                        if total_users:
+                            ui.label(f"{available}/{total_users}").classes(
+                                'text-xs font-bold text-green-700'
+                            )
+                            with ui.element('div').classes('w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden'):
+                                ui.element('div').classes('h-full rounded-full bg-green-500').style(
+                                    f'width:{ratio * 100:.0f}%;'
+                                )
+                        else:
+                            ui.label(f"{count} baja{'s' if count != 1 else ''}").classes(
+                                'text-xs font-semibold text-gray-500'
+                            )
+
+            ui.button('Cerrar', on_click=dialog.close).props('flat no-caps').classes(
+                'self-center text-gray-500 -mb-1'
+            )
+    dialog.open()
 
 
 def open_event_detail(event_id: int) -> None:
@@ -71,6 +161,7 @@ def open_event_detail(event_id: int) -> None:
     slot_lookup = {(slot.day, slot.start_time): slot for slot in slots}
 
     best_slot_id = min(baja_counts, key=baja_counts.get) if baja_counts else None
+    confirmed_slot = next((s for s in slots if s.id == event.confirmed_slot_id), None)
 
     def week_start(d: date) -> date:
         return d - timedelta(days=d.weekday())
@@ -81,9 +172,9 @@ def open_event_detail(event_id: int) -> None:
     week_starts = sorted(days_by_week.keys())
 
     default_week_index = 0
-    best_slot = next((s for s in slots if s.id == best_slot_id), None)
-    if best_slot and week_start(best_slot.day) in days_by_week:
-        default_week_index = week_starts.index(week_start(best_slot.day))
+    anchor_slot = confirmed_slot or next((s for s in slots if s.id == best_slot_id), None)
+    if anchor_slot and week_start(anchor_slot.day) in days_by_week:
+        default_week_index = week_starts.index(week_start(anchor_slot.day))
 
     state = {"week_index": default_week_index}
 
@@ -102,6 +193,18 @@ def open_event_detail(event_id: int) -> None:
             label_text, badge_style = STATUS_BADGE[event.status]
             ui.label(label_text).classes(f'px-2.5 py-0.5 text-xs font-medium rounded-full {badge_style}')
 
+        # Aviso claro y permanente del horario confirmado: antes solo se veía
+        # como un fino anillo alrededor de una celda entre muchas otras en la
+        # cuadrícula, y era fácil no darse cuenta. Ahora se muestra siempre
+        # arriba del todo mientras el evento tenga un horario confirmado.
+        if confirmed_slot:
+            with ui.row().classes('w-full items-center gap-2 p-3 bg-primary/10 rounded-lg'):
+                ui.icon('event_available').classes('text-primary text-lg')
+                ui.label(
+                    f"Horario confirmado: {DIAS_ES[confirmed_slot.day.weekday()].capitalize()} "
+                    f"{confirmed_slot.day:%d/%m} · {confirmed_slot.start_time:%H:%M}"
+                ).classes('text-sm font-semibold text-primary')
+
         with ui.row().classes('w-full gap-2 items-center p-2 border border-gray-200 rounded-lg bg-gray-50'):
             ui.icon('link').classes('text-gray-400 text-base')
             ui.input(value=link).props('readonly borderless dense').classes('flex-grow text-sm')
@@ -112,6 +215,12 @@ def open_event_detail(event_id: int) -> None:
                     ui.notify('Enlace copiado', type='positive'),
                 ),
             ).props('flat round dense').classes('text-gray-500')
+
+        ui.button(
+            'Ver mejores horarios',
+            icon='leaderboard',
+            on_click=lambda: open_best_slots_view(event, slots, baja_counts, total_users),
+        ).props('outline no-caps').classes('w-full text-primary border-primary rounded-lg')
 
         if not slots:
             ui.label('Este evento todavía no tiene franjas candidatas.').classes('text-sm text-gray-500 py-2')
@@ -157,31 +266,30 @@ def open_event_detail(event_id: int) -> None:
                                 count = baja_counts.get(slot.id, 0)
                                 ratio = count / total_users if total_users else 0
                                 bg = mix_color(ratio)
-                                is_best = slot.id == best_slot_id
+                                is_best = slot.id == best_slot_id and is_open
                                 is_confirmed_slot = slot.id == event.confirmed_slot_id
 
                                 cell_classes = (
-                                    "h-16 w-full min-w-0 rounded-lg flex flex-col items-center justify-center "
-                                    "gap-3 text-white transition-transform relative"
+                                    "h-16 w-full min-w-0 rounded-xl flex flex-col items-center justify-center "
+                                    "text-white transition-transform relative shadow-sm"
                                 )
                                 if is_confirmed_slot:
                                     cell_classes += " ring-2 ring-offset-2 ring-primary"
                                 if is_open:
                                     cell_classes += " cursor-pointer hover:scale-[1.04]"
 
-                                cell = ui.button(
-                                    on_click=(lambda s=slot: handle_confirm_slot(event_id, s.id, dialog))
-                                    if is_open
-                                    else None,
-                                ).props('unelevated dense' + ('' if is_open else ' disable'))
-                                cell.classes(cell_classes).style(f'background:{bg} !important;')
+                                cell = ui.element('div').classes(cell_classes).style(f'background:{bg} !important;')
+                                if is_open:
+                                    cell.on('click', lambda s=slot: handle_confirm_slot(event_id, s.id, dialog))
                                 with cell:
                                     ui.label(str(count)).classes('text-lg font-bold leading-none')
                                     ui.label('baja' + ('s' if count != 1 else '')).classes(
-                                        'text-[10px] leading-none opacity-90'
+                                        'text-[10px] leading-none opacity-90 mt-1'
                                     )
                                     if is_best:
-                                        ui.icon('star').classes('absolute top-1 right-1 text-white text-xs')
+                                        ui.icon('star').classes(
+                                            'absolute top-1 right-1 text-white text-xs drop-shadow'
+                                        )
 
                 if is_open:
                     ui.label('Toca una franja para confirmarla como horario definitivo.').classes(
@@ -232,13 +340,21 @@ def events_tab_page(club: Club):
                             else f"{event.title} · vs. {event.opponent_name}"
                         )
                         ui.label(title).classes('font-semibold text-gray-900 text-base leading-tight')
-                        ui.label(event.event_type.value.title()).classes('text-sm text-gray-500')
+                        ui.label(event.event_type.value.replace("_", " ").title()).classes('text-sm text-gray-500')
 
-                    with ui.column().classes('items-end gap-1 flex-shrink-0'):
+                    with ui.column().classes('items-end gap-3 flex-shrink-0 justify-between'):
                         ui.label(label_text).classes(
                             f'px-2.5 py-0.5 text-xs font-medium rounded-full {badge_style}'
                         )
-                        ui.button(
-                            icon='delete_outline',
-                            on_click=lambda ev=event: confirm_delete_event(ev.id),
-                        ).props('flat round dense').classes('text-gray-400 hover:text-red-600')
+                        with ui.dropdown_button().props('flat round density=compact dropdown-icon="delete" no-icon-animation') \
+                            .classes('text-gray-400 hover:text-primary hover:bg-accent'):
+                            with ui.column().classes("p-4 gap-1 w-full text-center mb-2 items-center"):
+                                ui.label("¿Estás seguro?").classes('font-bold text-md text-slate-600')
+                                ui.label("No podrás recuperar los datos.").classes('text-sm mb-1 text-slate-500')
+                                (
+                                    ui.button(
+                                        text="Borrar",
+                                        on_click=lambda ev=event: handle_delete_event(ev.id),
+                                    )
+                                )
+                                    
