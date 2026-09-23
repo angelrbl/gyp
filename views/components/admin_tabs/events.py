@@ -48,10 +48,6 @@ def handle_delete_event(event_id: int, on_change=None) -> None:
 
 
 def confirm_delete_event(event_id: int, parent_dialog=None) -> None:
-    """Diálogo de confirmación usado desde el botón de texto 'Eliminar evento'
-    dentro del detalle del evento (aquí sí tiene sentido un modal, porque ya
-    estamos dentro de otro diálogo grande)."""
-
     def do_delete() -> None:
         confirm_dialog.close()
         if parent_dialog:
@@ -193,10 +189,6 @@ def open_event_detail(event_id: int) -> None:
             label_text, badge_style = STATUS_BADGE[event.status]
             ui.label(label_text).classes(f'px-2.5 py-0.5 text-xs font-medium rounded-full {badge_style}')
 
-        # Aviso claro y permanente del horario confirmado: antes solo se veía
-        # como un fino anillo alrededor de una celda entre muchas otras en la
-        # cuadrícula, y era fácil no darse cuenta. Ahora se muestra siempre
-        # arriba del todo mientras el evento tenga un horario confirmado.
         if confirmed_slot:
             with ui.row().classes('w-full items-center gap-2 p-3 bg-primary/10 rounded-lg'):
                 ui.icon('event_available').classes('text-primary text-lg')

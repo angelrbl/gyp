@@ -3,5 +3,6 @@ from views.pages import (
     create_event,
     login,
     admin,
-    event
+    event,
+    activate
 )

@@ -6,6 +6,8 @@ from services.user_service import list_users_for_club, create_user, update_user,
 from services.role_service import get_user_roles, set_user_roles
 from services.token_service import create_activation_token
 
+from views.layout import APP_BASE_URL
+
 def handle_create_activation_link(user: User) -> None:
     if user.is_active:
         ui.notify('¡Este usuario ya está activo!', type="positive")
@@ -13,6 +15,7 @@ def handle_create_activation_link(user: User) -> None:
  
     try:
         token = create_activation_token(user_id=user.id)
+        link = f"{APP_BASE_URL}/activate/{token.value}"
     except ValueError as e:
         ui.notify(f"El usuario no existe, pruebe de nuevo.", type="negative")
         return
@@ -20,13 +23,16 @@ def handle_create_activation_link(user: User) -> None:
     with ui.dialog() as dialog:
         with ui.card().classes('w-full p-6 pl-8 pr-8 bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2'):
             ui.label("Link de activación").classes
-            with ui.row().classes('w-full gap-2 p-2 border border-gray-300 rounded-lg shadow-none justify-between items-center'):
-                ui.label(f"localhost:8080/e/{token.value}").classes('text-gray-900 text-md p-2')
- 
-                async def clip():
-                    await ui.run_javascript(f'navigator.clipboard.writeText("{token.value}")')
- 
-                ui.button(icon="content_copy", on_click=clip)
+            with ui.row().classes('w-full gap-2 items-center p-2 border border-gray-200 rounded-lg bg-gray-50'):
+                ui.icon('link').classes('text-gray-400 text-base')
+                ui.input(value=link).props('readonly borderless dense').classes('flex-grow text-sm')
+                ui.button(
+                    icon='content_copy',
+                    on_click=lambda: (
+                        ui.run_javascript(f'navigator.clipboard.writeText("{link}")'),
+                        ui.notify('Enlace copiado', type='positive'),
+                    ),
+                ).props('flat round dense').classes('text-gray-500')
     dialog.open()
 
 def handle_user(

@@ -1,8 +1,10 @@
 from datetime import date, datetime, timedelta
+from urllib.parse import urlencode, quote
+from datetime import datetime
 
 from nicegui import ui
 
-from models import EventStatus, TokenType
+from models import EventStatus, TokenType, Slot, Event
 from services.availability_service import get_user_unavailable_slot_ids, set_unavailability
 from services.event_service import get_event_by_id, get_event_slots, get_slot_by_id
 from services.token_service import get_valid_token
@@ -29,32 +31,6 @@ def event_page(token_value: str):
         else:
             render_confirmed_event(event)
 
-
-def build_ics(event, slot) -> bytes:
-    """Genera un fichero .ics mínimo para el horario confirmado."""
-    start_dt = datetime.combine(slot.day, slot.start_time)
-    end_dt = start_dt + timedelta(hours=1)
-    summary = event.title if not event.opponent_name else f"{event.title} vs. {event.opponent_name}"
-
-    def fmt(dt: datetime) -> str:
-        return dt.strftime('%Y%m%dT%H%M%S')
-
-    ics = (
-        "BEGIN:VCALENDAR\r\n"
-        "VERSION:2.0\r\n"
-        "PRODID:-//Club App//ES\r\n"
-        "BEGIN:VEVENT\r\n"
-        f"UID:{event.id}-{slot.id}@club-app\r\n"
-        f"DTSTAMP:{fmt(datetime.now())}\r\n"
-        f"DTSTART:{fmt(start_dt)}\r\n"
-        f"DTEND:{fmt(end_dt)}\r\n"
-        f"SUMMARY:{summary}\r\n"
-        "END:VEVENT\r\n"
-        "END:VCALENDAR\r\n"
-    )
-    return ics.encode()
-
-
 def render_confirmed_event(event) -> None:
     slot = get_slot_by_id(event.confirmed_slot_id) if event.confirmed_slot_id else None
     is_past = event.status == EventStatus.PAST
@@ -70,7 +46,7 @@ def render_confirmed_event(event) -> None:
             ui.label(f"vs. {event.opponent_name}").classes("text-dark text-sm")
 
         if slot:
-            with ui.column().classes("gap-1 mt-4 p-4 bg-primary/10 rounded-lg"):
+            with ui.column().classes("gap-1 mt-4 p-4 w-full bg-gray-50 border border-gray-200 rounded-xl shadow-none gap-2"):
                 ui.label("Horario confirmado").classes("text-primary text-xs font-semibold")
                 ui.label(
                     f"{DAYS[slot.day.weekday()].capitalize()} {slot.day:%d/%m} · {slot.start_time:%H:%M}"
@@ -80,11 +56,39 @@ def render_confirmed_event(event) -> None:
                 ui.button(
                     "Añadir a mi calendario",
                     icon="event",
-                    on_click=lambda: ui.download(build_ics(event, slot), f"{event.title}.ics"),
+                    on_click=lambda: ui.navigate.to(generate_gcal_link(event, slot), new_tab=True),
                 ).props("unelevated").classes("mt-4 w-full bg-primary text-white rounded-lg")
         else:
             ui.label("Este evento está confirmado, pero falta el horario.").classes("mt-4 text-sm text-gray-500")
 
+def generate_gcal_link(event: "Event", slot: "Slot") -> str:
+    title = event.title or "Partido"
+    if event.opponent_name:
+        title = f"{title} vs {event.opponent_name}"
+
+    start_dt = datetime.combine(slot.day, slot.start_time)
+    end_dt = datetime.combine(slot.day, slot.end_time)
+    
+    dates_str = f"{start_dt.strftime('%Y%m%dT%H%M%S')}/{end_dt.strftime('%Y%m%dT%H%M%S')}"
+
+    opponent = event.opponent_name or "rival"
+    html_details = f'<p>Partido contra "{opponent}". A por todas, ¡SOM-HI GRANDIOSA!</p>'
+    
+    location = "Universidad Jaume I"
+
+    params = {
+        "action": "TEMPLATE",
+        "text": title,
+        "dates": dates_str,
+        "details": html_details,
+        "location": location,
+        "ctz": "Europe/Madrid"
+    }
+    
+    base_url = "https://calendar.google.com/calendar/render"
+    query_string = urlencode(params, quote_via=quote)
+    
+    return f"{base_url}?{query_string}"
 
 def render_open_event(event) -> None:
     slots = get_event_slots(event.id)
