@@ -12,5 +12,7 @@ STORAGE_SECRET = os.getenv("STORAGE_SECRET")
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-DEFAULT_DB_PATH =f"sqlite:///{DATA_DIR / 'shelf.db'}"
+DEFAULT_DB_PATH =f"sqlite:///{DATA_DIR / 'gyp.db'}"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_PATH)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)

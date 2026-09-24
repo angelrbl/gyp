@@ -5,7 +5,9 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from core.config import DATABASE_URL
 
-engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+engine_kwargs = {} if "postgresql" in DATABASE_URL else {"connect_args": {"check_same_thread": False}}
+
+engine = create_engine(DATABASE_URL, echo=False, **engine_kwargs)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
