@@ -16,11 +16,11 @@ class EventStatus(str, Enum):
     PAST = "past" 
 
 class EventType(str, Enum):
-    GAME = "game"
-    MEETING = "meeting"
-    FRIENDLY_MATCH = "friendly_match"
-    TRAINING = "training"
-    OTHER = "other"
+    GAME = "partido"
+    MEETING = "reunión"
+    FRIENDLY_MATCH = "partido_amistoso"
+    TRAINING = "entrenamiento"
+    OTHER = "otro"
 
 class Event(Base):
     __tablename__ = "event"

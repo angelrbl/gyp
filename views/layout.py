@@ -7,7 +7,7 @@ def require_login() -> bool:
         return False
     return True
 
-APP_BASE_URL = "http://localhost:8080"
+APP_BASE_URL = "https://lapizarrapeluda.onrender.com"
 
 def logout() -> None:
     app.storage.user.clear()
