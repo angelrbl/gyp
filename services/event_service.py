@@ -73,7 +73,7 @@ def create_event(
         session.refresh(event)
         session.expunge(event)
         return event
-
+    
 def delete_event(event_id: int) -> bool:
     with get_session() as session:
         event = session.get(Event, event_id)
@@ -81,6 +81,10 @@ def delete_event(event_id: int) -> bool:
         if not event:
             raise ValueError("error_event_does_not_exist")
 
+        event.confirmed_slot_id = None
+        session.flush()
+
+        # 2. Procedemos con el borrado
         session.delete(event)
         session.commit()
 

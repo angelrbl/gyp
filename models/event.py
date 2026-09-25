@@ -44,8 +44,14 @@ class Event(Base):
         foreign_keys="[Slot.event_id]",
         cascade="all, delete-orphan",
     )
-    confirmed_slot_id: Mapped[Optional[int]] = mapped_column(ForeignKey("slot.id"), default=None)
-    confirmed_slot: Mapped[Optional["Slot"]] = relationship("Slot", foreign_keys=[confirmed_slot_id])
+    confirmed_slot_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("slot.id", ondelete="SET NULL"), default=None
+    )
+    confirmed_slot: Mapped[Optional["Slot"]] = relationship(
+        "Slot", 
+        foreign_keys=[confirmed_slot_id],
+        post_update=True
+    )
 
     club: Mapped["Club"] = relationship("Club", foreign_keys=[club_id], back_populates="events")
     opponent: Mapped[Optional["Club"]] = relationship("Club", foreign_keys=[opponent_id])
