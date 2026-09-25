@@ -20,7 +20,9 @@ class Token(Base):
     type: Mapped["TokenType"] = mapped_column()
 
     user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("user.id"), default=None)
-    event_id: Mapped[Optional[int]] = mapped_column(ForeignKey("event.id"), default=None)
+    event_id: Mapped[int] = mapped_column(ForeignKey("event.id", ondelete="CASCADE"))
+
+    event: Mapped["Event"] = relationship("Event", back_populates="tokens")
 
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=None)

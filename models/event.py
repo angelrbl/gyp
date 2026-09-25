@@ -53,6 +53,12 @@ class Event(Base):
         post_update=True
     )
 
+    tokens: Mapped[list["Token"]] = relationship(
+        "Token",
+        back_populates="event",
+        cascade="all, delete-orphan",
+    ) 
+
     club: Mapped["Club"] = relationship("Club", foreign_keys=[club_id], back_populates="events")
     opponent: Mapped[Optional["Club"]] = relationship("Club", foreign_keys=[opponent_id])
 
