@@ -56,7 +56,7 @@ def render_confirmed_event(event) -> None:
                 ui.button(
                     "Añadir a mi calendario",
                     icon="event",
-                    on_click=lambda: ui.navigate.to(generate_gcal_link(event, slot), new_tab=True),
+                    on_click=lambda: ui.navigate.to(generate_gcal_link(event, slot)),
                 ).props("unelevated").classes("mt-4 w-full bg-primary text-white rounded-lg")
         else:
             ui.label("Este evento está confirmado, pero falta el horario.").classes("mt-4 text-sm text-gray-500")
