@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime
 
 from sqlalchemy import String, ForeignKey, DateTime
-from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from core import Base
 
