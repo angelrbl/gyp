@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from models.availability import Unavailability
 
 class RoleType(str, Enum):
-    PLAYER = "player"
+    PLAYER = "jugador"
     STAFF = "staff"
-    CAPTAIN = "captain"
+    CAPTAIN = "capitán"
 
 class UserRole(Base):
     __tablename__ = "user_roles"

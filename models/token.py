@@ -3,6 +3,8 @@ from uuid import uuid4
 from typing import Optional
 from datetime import datetime
 
+from models import Event
+
 from sqlalchemy import String, ForeignKey, DateTime
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
